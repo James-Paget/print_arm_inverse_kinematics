@@ -6,6 +6,7 @@ Servo servo_b;
 Servo servo_s1;
 Servo servo_s2;
 Servo servo_s3;
+int navigation_pins[4] = {2,3,4,5};   // Respectively are; {..., +Y, ..., -X} / {UP, DOWN, RIGHT, LEFT}
 int servo_pins[4] = {8, 9, 10, 11};                       // for {b, s1, s2, s3}
 float servo_thetas[4] = {PI/2.0, PI/2.0, PI/2.0, PI/2.0}; // for {b, s1, s2, s3}
 
@@ -18,15 +19,32 @@ float solution_mode = 1.0;        // Which of the two solutions given by IK to u
 int calibration_mode = 0;
 
 void setup() {
+  Serial.begin(9600);
   servo_b.attach(servo_pins[0]);
   servo_s1.attach(servo_pins[1]);
   servo_s2.attach(servo_pins[2]);
   servo_s3.attach(servo_pins[3]);
+
+  pinMode(navigation_pins[0],INPUT_PULLUP);
+  pinMode(navigation_pins[1],INPUT_PULLUP);
+  pinMode(navigation_pins[2],INPUT_PULLUP);
+  pinMode(navigation_pins[3],INPUT_PULLUP);
 }
 
 void loop() {
   if(calibration_mode==0) {
+    // Print navigation readings
+    Serial.print("nav 0, AT ");
+    Serial.print(navigation_pins[0]);Serial.print("= ");Serial.println(digitalRead(navigation_pins[0]));
+    Serial.print("nav 1, AT ");
+    Serial.print(navigation_pins[1]);Serial.print("= ");Serial.println(digitalRead(navigation_pins[1]));
+    Serial.print("nav 2, AT ");
+    Serial.print(navigation_pins[2]);Serial.print("= ");Serial.println(digitalRead(navigation_pins[2]));
+    Serial.print("nav 3, AT ");
+    Serial.print(navigation_pins[3]);Serial.print("= ");Serial.println(digitalRead(navigation_pins[3]));
+    
     // Set all servos to their equilibrium angle (PI/2.0)
+    Serial.println("Calibrating...");
     servo_b.write(180);
     servo_s1.write(180);
     servo_s2.write(180);
@@ -34,24 +52,44 @@ void loop() {
     delay(2000);
 
   } else {
+    Serial.println("Main Program...");
     // Update target position
     t_pos[0] = 0.0;
     t_pos[1] = 0.0;
-    t_pos[2] = 0.0;
+    t_pos[2] = 1.8;
+    int UP=digitalRead(navigation_pins[1]);
+    int LEFT=digitalRead(navigation_pins[3]);
+    if(UP==0) {
+      t_pos[1] += 0.1;}
+    if(LEFT==0) {
+      t_pos[0] -= 0.1;}
 
     // Calculate servo theta values required (IK)
-    calculate_servo_theta_constrained(&t_pos[3]);
+    calculate_servo_theta_constrained();
+    servo_thetas[0] = rad_to_deg(servo_thetas[0] +PI/2.0);
+    servo_thetas[1] = rad_to_deg(servo_thetas[1] +PI/2.0);
+    servo_thetas[2] = rad_to_deg(servo_thetas[2] +PI/2.0);
+    servo_thetas[3] = rad_to_deg(servo_thetas[3] +PI/2.0);
 
     // Move servos according to thetas required
-    servo_b.write(PI/2.0);
-    servo_s1.write(PI/2.0);
-    servo_s2.write(PI/2.0);
-    servo_s3.write(PI/2.0);
-    delay(500);
+    Serial.println("===");
+    Serial.print("servo_thetas[0] = ");
+    Serial.println(servo_thetas[0]);
+    Serial.print("servo_thetas[1] = ");
+    Serial.println(servo_thetas[1]);
+    Serial.print("servo_thetas[2] = ");
+    Serial.println(servo_thetas[2]);
+    Serial.print("servo_thetas[3] = ");
+    Serial.println(servo_thetas[3]);
+    servo_b.write(servo_thetas[0]);
+    servo_s1.write(servo_thetas[1]);
+    servo_s2.write(servo_thetas[2]);
+    servo_s3.write(servo_thetas[3]);
+    delay(2000);
   }
 }
 
-void calculate_servo_theta_constrained(float* target) {
+void calculate_servo_theta_constrained() {
     /*
     . Calculates the servo_thetas[0], servo_thetas[1], servo_thetas[2] and servo_thetas[3] angles required to have the bit head at the target location
     . Found by solving simulataneous eqs for bit end position for servo_thetas[1], servo_thetas[2]
@@ -59,6 +97,8 @@ void calculate_servo_theta_constrained(float* target) {
     NOTE; When using this in the real arm, equilibrium angles are offset by PI/2.0, hence use tis function as normal (with normal target position) 
         and offset all found theta values by PI/2.0 (so constraints don't have to be reworked too)
     */
+    float target[3] = {t_pos[0], t_pos[1], t_pos[2]};
+    
     // Constraints
     //NOTE; Assumes 0.0 is the rest angle, but is actually PI/2.0 for the real servos
     float theta_lower = -PI/2.0;    // Lowest value servo is able to turn to (true for every servo)
@@ -76,6 +116,21 @@ void calculate_servo_theta_constrained(float* target) {
     float t2 = solution_mode*acos(sqrt(pow(r_b,2) +pow(z_b,2)) / (2.0*connection_length));
     servo_thetas[2] = 2.0*t2;
     servo_thetas[1] = t1-(servo_thetas[2]/2.0);
+
+    Serial.print("target[0] = ");
+    Serial.println(target[0]);
+    Serial.print("target[1] = ");
+    Serial.println(target[1]);
+    Serial.print("target[2] = ");
+    Serial.println(target[2]);
+    Serial.print("r_b = ");
+    Serial.println(r_b);
+    Serial.print("z_b = ");
+    Serial.println(z_b);
+    Serial.print("t1 = ");
+    Serial.println(t1);
+    Serial.print("t2 = ");
+    Serial.println(t2);
 
     // S3
     servo_thetas[3] = (0.0)-servo_thetas[1]-servo_thetas[2];
