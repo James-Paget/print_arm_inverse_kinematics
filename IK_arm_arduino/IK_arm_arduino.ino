@@ -14,9 +14,10 @@ float t_pos[3] = {0.0, 0.0, 0.0};   // Target position [x,y,z] for arm head, rel
 float connection_length = 1.0;      //## CHANGE THIS TO A SCALE BASED ON REALTIVE ARM LENGTHS, NO ARBITRARY UNITS OF 50 USED FOR SIMPLICITY IN PROCESSING
 float solution_mode = 1.0;        // Which of the two solutions given by IK to use; results in oppose orientation for angles when switched between pm1.0
 
+//(Other/-1) Main
 //(0) Move servos to equilbrium position at PI/2.0
 //(1) Have servos follow target
-int calibration_mode = 0;
+int calibration_mode = -1;
 
 void setup() {
   Serial.begin(9600);
@@ -29,62 +30,97 @@ void setup() {
   pinMode(navigation_pins[1],INPUT_PULLUP);
   pinMode(navigation_pins[2],INPUT_PULLUP);
   pinMode(navigation_pins[3],INPUT_PULLUP);
+
+  // Setup for the given mode
+  if(calibration_mode==0) {
+    Serial.println("Setup Cal.Mode 0");
+    servo_b.write(90);
+    servo_s1.write(90);
+    servo_s2.write(90);
+    servo_s3.write(90);
+  } else if(calibration_mode==1) {
+    Serial.println("Setup Cal.Mode 1");
+    servo_b.write(90);
+    servo_s1.write(90);
+    servo_s2.write(90);
+    servo_s3.write(90);
+  } else {
+    Serial.println("Setup Cal.Mode Main");
+    // Set target to be at some point, then move all servos to be there
+    t_pos[0] = 0.0;
+    t_pos[1] = 0.0;
+    t_pos[2] = 1.5; // Relative arm lengths, hence is max 2.0 for this 2 arm system
+    
+    calculate_servo_theta_constrained();
+    servo_thetas[0] += PI/2.0;
+    servo_thetas[1] += PI/2.0;
+    servo_thetas[2] += PI/2.0;
+    servo_thetas[3] += PI/2.0;
+    
+    servo_b.write(  rad_to_deg(servo_thetas[0]) );
+    servo_s1.write( rad_to_deg(servo_thetas[1]) );  //## Possibly connected in opposite sense -> likely hardware problem
+    servo_s2.write( rad_to_deg(servo_thetas[2]) );  //##
+    servo_s3.write( rad_to_deg(servo_thetas[3]) );
+  }
 }
 
 void loop() {
   if(calibration_mode==0) {
     // Print navigation readings
-    Serial.print("nav 0, AT ");
-    Serial.print(navigation_pins[0]);Serial.print("= ");Serial.println(digitalRead(navigation_pins[0]));
-    Serial.print("nav 1, AT ");
-    Serial.print(navigation_pins[1]);Serial.print("= ");Serial.println(digitalRead(navigation_pins[1]));
-    Serial.print("nav 2, AT ");
-    Serial.print(navigation_pins[2]);Serial.print("= ");Serial.println(digitalRead(navigation_pins[2]));
-    Serial.print("nav 3, AT ");
-    Serial.print(navigation_pins[3]);Serial.print("= ");Serial.println(digitalRead(navigation_pins[3]));
+    Serial.print("nav 0, AT ");Serial.print(navigation_pins[0]);Serial.print("= ");Serial.println(digitalRead(navigation_pins[0]));
+    Serial.print("nav 1, AT ");Serial.print(navigation_pins[1]);Serial.print("= ");Serial.println(digitalRead(navigation_pins[1]));
+    Serial.print("nav 2, AT ");Serial.print(navigation_pins[2]);Serial.print("= ");Serial.println(digitalRead(navigation_pins[2]));
+    Serial.print("nav 3, AT ");Serial.print(navigation_pins[3]);Serial.print("= ");Serial.println(digitalRead(navigation_pins[3]));
     
     // Set all servos to their equilibrium angle (PI/2.0)
-    Serial.println("Calibrating...");
-    servo_b.write(180);
-    servo_s1.write(180);
-    servo_s2.write(180);
-    servo_s3.write(180);
+    Serial.println("Calibrating To Zero...");
+    servo_b.write(90);
+    servo_s1.write(90);
+    servo_s2.write(90);
+    servo_s3.write(90);
     delay(2000);
 
-  } else {
-    Serial.println("Main Program...");
-    // Update target position
-    t_pos[0] = 0.0;
-    t_pos[1] = 0.0;
-    t_pos[2] = 1.8;
+  } else if(calibration_mode==1) {
+    Serial.println("Calibrating To Offset...");
+    float offset=10;
     int UP=digitalRead(navigation_pins[1]);
     int LEFT=digitalRead(navigation_pins[3]);
     if(UP==0) {
-      t_pos[1] += 0.1;}
+      servo_thetas[1] += deg_to_rad(offset);}
+    if(LEFT==0) {
+      servo_thetas[1] -= deg_to_rad(offset);}
+    Serial.print("  Offset to 90+x=");
+    Serial.println(90+offset);
+    servo_b.write(90);
+    servo_s1.write(rad_to_deg(servo_thetas[1]));
+    servo_s2.write(90);
+    servo_s3.write(90);
+    delay(2000);
+  } else {
+    Serial.println("Main Program...");
+    // Update target position
+    int UP=digitalRead(navigation_pins[1]);
+    int LEFT=digitalRead(navigation_pins[3]);
+    if(UP==0) {
+      t_pos[0] += 0.1;}
     if(LEFT==0) {
       t_pos[0] -= 0.1;}
 
-    // Calculate servo theta values required (IK)
     calculate_servo_theta_constrained();
-    servo_thetas[0] = rad_to_deg(servo_thetas[0] +PI/2.0);
-    servo_thetas[1] = rad_to_deg(servo_thetas[1] +PI/2.0);
-    servo_thetas[2] = rad_to_deg(servo_thetas[2] +PI/2.0);
-    servo_thetas[3] = rad_to_deg(servo_thetas[3] +PI/2.0);
+    servo_thetas[0] += PI/2.0;
+    servo_thetas[1] += PI/2.0;
+    servo_thetas[2] += PI/2.0;
+    servo_thetas[3] += PI/2.0;
 
-    // Move servos according to thetas required
     Serial.println("===");
-    Serial.print("servo_thetas[0] = ");
-    Serial.println(servo_thetas[0]);
-    Serial.print("servo_thetas[1] = ");
-    Serial.println(servo_thetas[1]);
-    Serial.print("servo_thetas[2] = ");
-    Serial.println(servo_thetas[2]);
-    Serial.print("servo_thetas[3] = ");
-    Serial.println(servo_thetas[3]);
-    servo_b.write(servo_thetas[0]);
-    servo_s1.write(servo_thetas[1]);
-    servo_s2.write(servo_thetas[2]);
-    servo_s3.write(servo_thetas[3]);
+    Serial.print("servo_thetas = ");Serial.print(servo_thetas[0]);Serial.print(",");Serial.print(servo_thetas[1]);Serial.print(",");Serial.print(servo_thetas[2]);Serial.print(",");Serial.println(servo_thetas[3]);
+    Serial.print("t_pos = ");Serial.print(t_pos[0]);Serial.print(",");Serial.print(t_pos[1]);Serial.print(",");Serial.print(t_pos[2]);Serial.print(",");Serial.println(t_pos[3]);
+    
+    servo_b.write(  rad_to_deg(servo_thetas[0]) );
+    servo_s1.write( rad_to_deg(servo_thetas[2]) );
+    servo_s2.write( rad_to_deg(servo_thetas[1]) );
+    servo_s3.write( rad_to_deg(servo_thetas[3]));
+
     delay(2000);
   }
 }
@@ -117,20 +153,20 @@ void calculate_servo_theta_constrained() {
     servo_thetas[2] = 2.0*t2;
     servo_thetas[1] = t1-(servo_thetas[2]/2.0);
 
-    Serial.print("target[0] = ");
-    Serial.println(target[0]);
-    Serial.print("target[1] = ");
-    Serial.println(target[1]);
-    Serial.print("target[2] = ");
-    Serial.println(target[2]);
-    Serial.print("r_b = ");
-    Serial.println(r_b);
-    Serial.print("z_b = ");
-    Serial.println(z_b);
-    Serial.print("t1 = ");
-    Serial.println(t1);
-    Serial.print("t2 = ");
-    Serial.println(t2);
+//    Serial.print("target[0] = ");
+//    Serial.println(target[0]);
+//    Serial.print("target[1] = ");
+//    Serial.println(target[1]);
+//    Serial.print("target[2] = ");
+//    Serial.println(target[2]);
+//    Serial.print("r_b = ");
+//    Serial.println(r_b);
+//    Serial.print("z_b = ");
+//    Serial.println(z_b);
+//    Serial.print("t1 = ");
+//    Serial.println(t1);
+//    Serial.print("t2 = ");
+//    Serial.println(t2);
 
     // S3
     servo_thetas[3] = (0.0)-servo_thetas[1]-servo_thetas[2];
@@ -152,6 +188,6 @@ float constrain_servo_angle(float theta_orig, float theta_lower, float theta_upp
 float rad_to_deg(float rad) {
   return rad*360.0/(2.0*PI);
 }
-float def_to_rad(float deg) {
+float deg_to_rad(float deg) {
   return deg*(2.0*PI)/360.0;
 }
