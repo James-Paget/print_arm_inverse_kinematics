@@ -4,7 +4,7 @@ float theta_s1 = 0.0;   //PI/2.0;    // Lower knuckle servo
 float theta_s2 = 0.0;   //PI/2.0;    // Upper knuckle servo
 float theta_s3 = 0.0;   //PI/2.0;    // Bit head servo
 
-float connection_length = 50.0; // Length of each arm
+float connection_length = 100.0; // Length of each arm
 
 PVector origin;
 PVector target=new PVector(0.0, 0.0, 0.0);

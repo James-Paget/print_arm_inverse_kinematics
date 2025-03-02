@@ -9,6 +9,9 @@ Servo servo_s3;
 int navigation_pins[4] = {2,3,4,5};   // Respectively are; {..., +Y, ..., -X} / {UP, DOWN, RIGHT, LEFT}
 int servo_pins[4] = {8, 9, 10, 11};                       // for {b, s1, s2, s3}
 float servo_thetas[4] = {PI/2.0, PI/2.0, PI/2.0, PI/2.0}; // for {b, s1, s2, s3}
+//##
+//## Pin 8 not working -> Possible faulty wire used?
+//##
 
 float t_pos[3] = {0.0, 0.0, 0.0};   // Target position [x,y,z] for arm head, relative to base
 float connection_length = 1.0;      //## CHANGE THIS TO A SCALE BASED ON REALTIVE ARM LENGTHS, NO ARBITRARY UNITS OF 50 USED FOR SIMPLICITY IN PROCESSING
@@ -58,8 +61,8 @@ void setup() {
     servo_thetas[3] += PI/2.0;
     
     servo_b.write(  rad_to_deg(servo_thetas[0]) );
-    servo_s1.write( rad_to_deg(servo_thetas[1]) );  //## Possibly connected in opposite sense -> likely hardware problem
-    servo_s2.write( rad_to_deg(servo_thetas[2]) );  //##
+    servo_s1.write( rad_to_deg(servo_thetas[1]) );
+    servo_s2.write( rad_to_deg(servo_thetas[2]) );
     servo_s3.write( rad_to_deg(servo_thetas[3]) );
   }
 }
@@ -117,8 +120,8 @@ void loop() {
     Serial.print("t_pos = ");Serial.print(t_pos[0]);Serial.print(",");Serial.print(t_pos[1]);Serial.print(",");Serial.print(t_pos[2]);Serial.print(",");Serial.println(t_pos[3]);
     
     servo_b.write(  rad_to_deg(servo_thetas[0]) );
-    servo_s1.write( rad_to_deg(servo_thetas[2]) );
-    servo_s2.write( rad_to_deg(servo_thetas[1]) );
+    servo_s1.write( rad_to_deg(servo_thetas[1]) );
+    servo_s2.write( rad_to_deg(servo_thetas[2]) );
     servo_s3.write( rad_to_deg(servo_thetas[3]));
 
     delay(2000);
